@@ -5,11 +5,15 @@ import PropertyList from "../components/PropertyList";
 
 const BrowseProperties = () => {
 
-  const [filters, setFilters] = useState({
+  // 🔹 Actual applied filters
+  const [appliedFilters, setAppliedFilters] = useState({
     type: "All",
     minPrice: "",
     maxPrice: "",
   });
+
+  // 🔹 Temporary input state
+  const [tempFilters, setTempFilters] = useState(appliedFilters);
 
   const properties = [
     {
@@ -44,42 +48,48 @@ const BrowseProperties = () => {
     },
   ];
 
-  // 🔥 FILTER LOGIC
+  // 🔥 FILTER LOGIC (uses appliedFilters)
   const filteredProperties = properties.filter((item) => {
-
     const matchType =
-      filters.type === "All" || item.type === filters.type;
+      appliedFilters.type === "All" || item.type === appliedFilters.type;
 
     const matchMin =
-      filters.minPrice === "" || item.price >= Number(filters.minPrice);
+      appliedFilters.minPrice === "" ||
+      item.price >= Number(appliedFilters.minPrice);
 
     const matchMax =
-      filters.maxPrice === "" || item.price <= Number(filters.maxPrice);
+      appliedFilters.maxPrice === "" ||
+      item.price <= Number(appliedFilters.maxPrice);
 
     return matchType && matchMin && matchMax;
   });
 
   return (
     <div className="bg-[#F5F7FA] min-h-screen">
-  <Navbar />
+      <Navbar />
 
-  <div className="max-w-7xl mx-auto px-6 py-6">
-    
-    <h1 className="text-3xl font-semibold text-gray-800">
-      Browse Properties
-    </h1>
+      <div className="max-w-7xl mx-auto px-6 py-6">
+        <h1 className="text-3xl font-semibold">Browse Properties</h1>
+        <p className="text-gray-500 mb-6">
+          Find your dream home without any brokerage
+        </p>
 
-    <p className="text-gray-500 mt-1 mb-6">
-      Find your dream home without any brokerage
-    </p>
+        <Filter
+          tempFilters={tempFilters}
+          setTempFilters={setTempFilters}
+          applyFilters={() => setAppliedFilters(tempFilters)}
+          clearFilters={() => {
+            const reset = { type: "All", minPrice: "", maxPrice: "" };
+            setTempFilters(reset);
+            setAppliedFilters(reset);
+          }}
+        />
 
-    <Filter filters={filters} setFilters={setFilters} />
-
-    <div className="mt-8">
-      <PropertyList properties={filteredProperties} />
+        <div className="mt-8">
+          <PropertyList properties={filteredProperties} />
+        </div>
+      </div>
     </div>
-  </div>
-</div>
   );
 };
 
