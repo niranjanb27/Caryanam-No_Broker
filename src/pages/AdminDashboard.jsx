@@ -1,4 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
+import { adminApi } from "../services/api";
+import imageCompression from "browser-image-compression";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 const AdminDashboard = () => {
   const [formData, setFormData] = useState({
@@ -7,7 +11,19 @@ const AdminDashboard = () => {
     propertyType: "",
     location: "",
     mobileNumber: "",
+    description: "",
+    bhkType: "",
+    furnishing: "",
   });
+
+  const [images, setImages] = useState([]);
+  const [imagePreviews, setImagePreviews] = useState([]);
+  const [properties, setProperties] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [editingProperty, setEditingProperty] = useState(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const adminId = 1; // Admin ID for rajeshnarwade67@gmail.com
 
   const imageLabels = [
     "Door (Closed)",
@@ -21,6 +37,254 @@ const AdminDashboard = () => {
     "Society Image 1",
     "Society Image 2",
   ];
+
+  // Fetch properties on component mount
+  useEffect(() => {
+    fetchProperties();
+  }, []);
+
+  const fetchProperties = async () => {
+    try {
+      setLoading(true);
+      const response = await adminApi.getAllProperties();
+      if (response.data && response.data.data) {
+        setProperties(response.data.data);
+      }
+    } catch (err) {
+      console.error("Error fetching properties:", err);
+      toast.error("Failed to fetch properties");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Compress image to max 2MB
+  const compressImage = async (file) => {
+    const options = {
+      maxSizeMB: 2,
+      maxWidthOrHeight: 1920,
+      useWebWorker: true,
+    };
+
+    try {
+      const compressedFile = await imageCompression(file, options);
+      return compressedFile;
+    } catch (error) {
+      console.error("Error compressing image:", error);
+      throw new Error("Failed to compress image");
+    }
+  };
+
+  // Validate image
+  const validateImage = (file) => {
+    const validTypes = ["image/jpeg", "image/jpg", "image/png"];
+    if (!validTypes.includes(file.type)) {
+      throw new Error("Only JPG, JPEG, and PNG images are allowed");
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      throw new Error("Image size must be less than 2MB");
+    }
+    return true;
+  };
+
+  // Handle image selection
+  const handleImageSelect = async (index, e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    try {
+      validateImage(file);
+      const compressedFile = await compressImage(file);
+
+      const newImages = [...images];
+      const newPreviews = [...imagePreviews];
+
+      newImages[index] = compressedFile;
+      newPreviews[index] = URL.createObjectURL(compressedFile);
+
+      setImages(newImages);
+      setImagePreviews(newPreviews);
+    } catch (err) {
+      toast.error(err.message);
+    }
+  };
+
+  // Handle form submission
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    // Validate form
+    if (!formData.propertyTitle || !formData.price || !formData.propertyType ||
+        !formData.location || !formData.mobileNumber || !formData.description ||
+        !formData.bhkType || !formData.furnishing) {
+      toast.error("All fields are required");
+      return;
+    }
+
+    // Validate mobile number
+    if (formData.mobileNumber.length !== 10 || !/^[6-9]/.test(formData.mobileNumber)) {
+      toast.error("Invalid mobile number");
+      return;
+    }
+
+    // Validate images
+    const uploadedImages = images.filter(img => img !== undefined);
+    if (uploadedImages.length === 0) {
+      toast.error("At least one image is required");
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      // Prepare property data
+      const propertyData = {
+        title: formData.propertyTitle,
+        price: parseFloat(formData.price),
+        propertyType: formData.propertyType,
+        location: formData.location,
+        mobileNumber: formData.mobileNumber,
+        description: formData.description,
+        bhkType: formData.bhkType,
+        furnishing: formData.furnishing,
+      };
+
+      // Add property
+      const propertyResponse = await adminApi.addProperty(adminId, propertyData);
+      
+      if (propertyResponse.data && propertyResponse.data.data) {
+        const propertyId = propertyResponse.data.data.id;
+
+        // Upload images
+        const formDataImages = new FormData();
+        uploadedImages.forEach((image) => {
+          formDataImages.append("files", image);
+        });
+
+        await adminApi.uploadPropertyImages(propertyId, formDataImages);
+
+        toast.success("Property added successfully!");
+        
+        // Reset form
+        setFormData({
+          propertyTitle: "",
+          price: "",
+          propertyType: "",
+          location: "",
+          mobileNumber: "",
+          description: "",
+          bhkType: "",
+          furnishing: "",
+        });
+        setImages([]);
+        setImagePreviews([]);
+
+        // Refresh properties list
+        await fetchProperties();
+      }
+    } catch (err) {
+      console.error("Error adding property:", err);
+      toast.error(err.response?.data?.message || "Failed to add property");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle delete property
+  const handleDeleteProperty = async (propertyId) => {
+    if (!window.confirm("Are you sure you want to delete this property?")) {
+      return;
+    }
+
+    try {
+      await adminApi.deleteProperty(propertyId);
+      toast.success("Property deleted successfully");
+      await fetchProperties();
+    } catch (err) {
+      console.error("Error deleting property:", err);
+      toast.error("Failed to delete property");
+    }
+  };
+
+  // Handle edit property
+  const handleEditProperty = (property) => {
+    setEditingProperty(property);
+    setFormData({
+      propertyTitle: property.title || "",
+      price: property.price || "",
+      propertyType: property.propertyType || "",
+      location: property.location || "",
+      mobileNumber: property.mobileNumber || "",
+      description: property.description || "",
+      bhkType: property.bhkType || "",
+      furnishing: property.furnishing || "",
+    });
+    setShowEditModal(true);
+  };
+
+  // Handle update property
+  const handleUpdateProperty = async (e) => {
+    e.preventDefault();
+
+    if (!editingProperty) return;
+
+    // Validate form
+    if (!formData.propertyTitle || !formData.price || !formData.propertyType ||
+        !formData.location || !formData.mobileNumber || !formData.description ||
+        !formData.bhkType || !formData.furnishing) {
+      toast.error("All fields are required");
+      return;
+    }
+
+    // Validate mobile number
+    if (formData.mobileNumber.length !== 10 || !/^[6-9]/.test(formData.mobileNumber)) {
+      toast.error("Invalid mobile number");
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const propertyData = {
+        title: formData.propertyTitle,
+        price: parseFloat(formData.price),
+        propertyType: formData.propertyType,
+        location: formData.location,
+        mobileNumber: formData.mobileNumber,
+        description: formData.description,
+        bhkType: formData.bhkType,
+        furnishing: formData.furnishing,
+      };
+
+      await adminApi.updateProperty(editingProperty.id, propertyData);
+      toast.success("Property updated successfully");
+
+      setShowEditModal(false);
+      setEditingProperty(null);
+      await fetchProperties();
+    } catch (err) {
+      console.error("Error updating property:", err);
+      toast.error(err.response?.data?.message || "Failed to update property");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Close edit modal
+  const handleCloseEditModal = () => {
+    setShowEditModal(false);
+    setEditingProperty(null);
+    setFormData({
+      propertyTitle: "",
+      price: "",
+      propertyType: "",
+      location: "",
+      mobileNumber: "",
+      description: "",
+      bhkType: "",
+      furnishing: "",
+    });
+  };
 
   return (
     <div className="bg-[#F5F7FA] min-h-screen">
@@ -130,11 +394,9 @@ const AdminDashboard = () => {
                   }
                 >
                   <option value="">Select property type</option>
-                  <option value="Apartment">Apartment</option>
-                  <option value="Villa">Villa</option>
-                  <option value="House">House</option>
-                  <option value="Plot">Plot</option>
-                  <option value="Commercial">Commercial</option>
+                  <option value="APARTMENT">Apartment</option>
+                  <option value="VILLA">Villa</option>
+                  <option value="HOME">House</option>
                 </select>
               </div>
             </div>
@@ -172,6 +434,63 @@ const AdminDashboard = () => {
               </div>
             </div>
 
+            {/* Third Row: Description */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Description <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Enter property description"
+                rows="4"
+                value={formData.description}
+                onChange={(e) =>
+                  setFormData({ ...formData, description: e.target.value })
+                }
+              />
+            </div>
+
+            {/* Fourth Row: BHK Type and Furnishing */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  BHK Type <span className="text-red-500">*</span>
+                </label>
+                <select
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                  value={formData.bhkType}
+                  onChange={(e) =>
+                    setFormData({ ...formData, bhkType: e.target.value })
+                  }
+                >
+                  <option value="">Select BHK type</option>
+                  <option value="ONE_BHK">1BHK</option>
+                  <option value="TWO_BHK">2BHK</option>
+                  <option value="THREE_BHK">3BHK</option>
+                  <option value="FOUR_BHK">4BHK</option>
+                  <option value="STUDIO">Studio</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Furnishing <span className="text-red-500">*</span>
+                </label>
+                <select
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                  value={formData.furnishing}
+                  onChange={(e) =>
+                    setFormData({ ...formData, furnishing: e.target.value })
+                  }
+                >
+                  <option value="">Select furnishing type</option>
+                  <option value="FULLY_FURNISHED">Fully Furnished</option>
+                  <option value="SEMI_FURNISHED">Semi Furnished</option>
+                  <option value="UNFURNISHED">Unfurnished</option>
+                </select>
+              </div>
+            </div>
+
             {/* Property Images */}
             <div>
               <div className="flex items-center gap-3 mb-4">
@@ -194,26 +513,49 @@ const AdminDashboard = () => {
               </div>
               <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                 {imageLabels.map((label, index) => (
-                  <div
-                    key={index}
-                    className="border-2 border-dashed border-gray-300 rounded-lg p-6 flex flex-col items-center justify-center hover:border-blue-500 hover:bg-blue-50 transition-colors cursor-pointer min-h-[120px]"
-                  >
-                    <svg
-                      className="w-10 h-10 text-gray-400 mb-3"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
+                  <div key={index} className="relative">
+                    <input
+                      type="file"
+                      id={`image-${index}`}
+                      className="hidden"
+                      accept="image/jpeg,image/jpg,image/png"
+                      onChange={(e) => handleImageSelect(index, e)}
+                    />
+                    <label
+                      htmlFor={`image-${index}`}
+                      className={`border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center transition-colors cursor-pointer min-h-[120px] ${
+                        imagePreviews[index]
+                          ? "border-green-500 bg-green-50"
+                          : "border-gray-300 hover:border-blue-500 hover:bg-blue-50"
+                      }`}
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                      />
-                    </svg>
-                    <span className="text-xs text-gray-500 text-center font-medium">
-                      {label}
-                    </span>
+                      {imagePreviews[index] ? (
+                        <img
+                          src={imagePreviews[index]}
+                          alt={label}
+                          className="w-full h-full object-cover rounded"
+                        />
+                      ) : (
+                        <>
+                          <svg
+                            className="w-10 h-10 text-gray-400 mb-3"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                            />
+                          </svg>
+                          <span className="text-xs text-gray-500 text-center font-medium">
+                            {label}
+                          </span>
+                        </>
+                      )}
+                    </label>
                   </div>
                 ))}
               </div>
@@ -222,10 +564,12 @@ const AdminDashboard = () => {
             {/* Submit Button */}
             <div className="pt-6">
               <button
-                type="button"
-                className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-sm"
+                type="submit"
+                onClick={handleSubmit}
+                disabled={loading}
+                className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-sm disabled:bg-gray-400 disabled:cursor-not-allowed"
               >
-                Upload Property
+                {loading ? "Uploading..." : "Upload Property"}
               </button>
             </div>
           </div>
@@ -253,50 +597,94 @@ const AdminDashboard = () => {
               </h2>
             </div>
             <span className="text-sm text-gray-500">
-              1 Properties
+              {properties.length} Properties
             </span>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <div className="border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow">
-              <div className="h-48 bg-gray-200">
-                <img
-                  src="https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400&h=300&fit=crop"
-                  alt="Skyline Apartment"
-                  className="w-full h-full object-cover"
-                />
-              </div>
-              <div className="p-4">
-                <h3 className="font-semibold text-gray-800 mb-2">
-                  Skyline Apartment
-                </h3>
-                <p className="text-sm text-gray-500 mb-1">
-                  Bandra West, Mumbai
-                </p>
-                <p className="text-sm font-medium text-blue-600 mb-1">
-                  ₹45,00,000
-                </p>
-                <p className="text-sm text-gray-500 mb-3">
-                  9876543210
-                </p>
-                <button className="text-red-500 hover:text-red-700">
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                    />
-                  </svg>
-                </button>
-              </div>
+          {loading ? (
+            <div className="text-center py-8">
+              <p className="text-gray-500">Loading properties...</p>
             </div>
-          </div>
+          ) : properties.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-gray-500">No properties found</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {properties.map((property) => (
+                <div
+                  key={property.id}
+                  className="border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow"
+                >
+                  <div className="h-48 bg-gray-200">
+                    {property.images && property.images.length > 0 ? (
+                      <img
+                        src={`data:image/jpeg;base64,${property.images[0].imageData}`}
+                        alt={property.title}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-gray-300">
+                        <span className="text-gray-500">No Image</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="p-4">
+                    <h3 className="font-semibold text-gray-800 mb-2">
+                      {property.title}
+                    </h3>
+                    <p className="text-sm text-gray-500 mb-1">
+                      {property.location}
+                    </p>
+                    <p className="text-sm font-medium text-blue-600 mb-1">
+                      ₹{property.price?.toLocaleString()}
+                    </p>
+                    <p className="text-sm text-gray-500 mb-3">
+                      {property.mobileNumber}
+                </p>
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => handleEditProperty(property)}
+                        className="text-blue-500 hover:text-blue-700"
+                      >
+                        <svg
+                          className="w-5 h-5"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                          />
+                        </svg>
+                      </button>
+                      <button
+                        onClick={() => handleDeleteProperty(property.id)}
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        <svg
+                          className="w-5 h-5"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                          />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Interested Users Section */}
@@ -380,6 +768,184 @@ const AdminDashboard = () => {
           </div>
         </div>
       </div>
+
+      {/* Edit Property Modal */}
+      {showEditModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center p-6 border-b">
+              <h2 className="text-2xl font-bold text-gray-800">Edit Property</h2>
+              <button
+                onClick={handleCloseEditModal}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <svg
+                  className="w-6 h-6"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateProperty} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Property Title <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={formData.propertyTitle}
+                  onChange={(e) =>
+                    setFormData({ ...formData, propertyTitle: e.target.value })
+                  }
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Price <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={formData.price}
+                  onChange={(e) =>
+                    setFormData({ ...formData, price: e.target.value })
+                  }
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Property Type <span className="text-red-500">*</span>
+                </label>
+                <select
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                  value={formData.propertyType}
+                  onChange={(e) =>
+                    setFormData({ ...formData, propertyType: e.target.value })
+                  }
+                >
+                  <option value="">Select property type</option>
+                  <option value="APARTMENT">Apartment</option>
+                  <option value="VILLA">Villa</option>
+                  <option value="HOME">House</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Location <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={formData.location}
+                  onChange={(e) =>
+                    setFormData({ ...formData, location: e.target.value })
+                  }
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Mobile Number <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={formData.mobileNumber}
+                  onChange={(e) =>
+                    setFormData({ ...formData, mobileNumber: e.target.value })
+                  }
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Description <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  rows="4"
+                  value={formData.description}
+                  onChange={(e) =>
+                    setFormData({ ...formData, description: e.target.value })
+                  }
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    BHK Type <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                    value={formData.bhkType}
+                    onChange={(e) =>
+                      setFormData({ ...formData, bhkType: e.target.value })
+                    }
+                  >
+                    <option value="">Select BHK type</option>
+                    <option value="ONE_BHK">1BHK</option>
+                    <option value="TWO_BHK">2BHK</option>
+                    <option value="THREE_BHK">3BHK</option>
+                    <option value="FOUR_BHK">4BHK</option>
+                    <option value="STUDIO">Studio</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Furnishing <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                    value={formData.furnishing}
+                    onChange={(e) =>
+                      setFormData({ ...formData, furnishing: e.target.value })
+                    }
+                  >
+                    <option value="">Select furnishing type</option>
+                    <option value="FULLY_FURNISHED">Fully Furnished</option>
+                    <option value="SEMI_FURNISHED">Semi Furnished</option>
+                    <option value="UNFURNISHED">Unfurnished</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={handleCloseEditModal}
+                  className="flex-1 px-4 py-3 border border-gray-300 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="flex-1 bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:bg-gray-400"
+                >
+                  {loading ? "Updating..." : "Update Property"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      <ToastContainer position="top-right" autoClose={3000} />
     </div>
   );
 };
