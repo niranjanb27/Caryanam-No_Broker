@@ -1,18 +1,17 @@
 import { useState } from "react";
+import { motion } from "framer-motion";
 import Navbar from "../components/Navbar";
 import Filter from "../components/Filter";
 import PropertyList from "../components/PropertyList";
 
 const BrowseProperties = () => {
 
-  // 🔹 Actual applied filters
   const [appliedFilters, setAppliedFilters] = useState({
     type: "All",
     minPrice: "",
     maxPrice: "",
   });
 
-  // 🔹 Temporary input state
   const [tempFilters, setTempFilters] = useState(appliedFilters);
 
   const properties = [
@@ -36,7 +35,8 @@ const BrowseProperties = () => {
       details: "4 BHK · 3200 sqft",
       image: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c",
     },
-    {
+    
+   {
       id: 3,
       type: "House",
       title: "Cozy Independent House",
@@ -48,7 +48,6 @@ const BrowseProperties = () => {
     },
   ];
 
-  // 🔥 FILTER LOGIC (uses appliedFilters)
   const filteredProperties = properties.filter((item) => {
     const matchType =
       appliedFilters.type === "All" || item.type === appliedFilters.type;
@@ -68,8 +67,15 @@ const BrowseProperties = () => {
     <div className="bg-[#F5F7FA] min-h-screen">
       <Navbar />
 
-      <div className="max-w-7xl mx-auto px-6 py-6">
-        <h1 className="text-3xl font-semibold">Browse Properties</h1>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="max-w-7xl mx-auto px-6 py-6"
+      >
+        <h1 className="text-3xl font-semibold tracking-tight">
+          Browse Properties
+        </h1>
+
         <p className="text-gray-500 mb-6">
           Find your dream home without any brokerage
         </p>
@@ -88,7 +94,7 @@ const BrowseProperties = () => {
         <div className="mt-8">
           <PropertyList properties={filteredProperties} />
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 };

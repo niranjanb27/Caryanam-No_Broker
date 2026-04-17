@@ -56,7 +56,7 @@ const Filter = ({
         />
       </div>
 
-      {/* 🔥 Buttons */}
+      {/*  Buttons */}
       <div className="flex gap-2">
         <button
           onClick={clearFilters}
