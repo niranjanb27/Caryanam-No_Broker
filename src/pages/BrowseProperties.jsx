@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import Navbar from "../components/Navbar";
 import Filter from "../components/Filter";
 import PropertyList from "../components/PropertyList";
+import { propertyApi, STATIC_BASE_URL } from "../services/api";
 
 const BrowseProperties = () => {
 
@@ -14,54 +15,106 @@ const BrowseProperties = () => {
 
   const [tempFilters, setTempFilters] = useState(appliedFilters);
 
-  const properties = [
-    {
-      id: 1,
-      type: "Apartment",
-      title: "Luxury Skyline Apartment",
-      price: 4500000,
-      location: "Bandra West, Mumbai",
-      phone: "9876543210",
-      details: "3 BHK · 1450 sqft",
-      image: "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2",
-    },
-    {
-      id: 2,
-      type: "Villa",
-      title: "Elegant Garden Villa",
-      price: 8500000,
-      location: "Whitefield, Bangalore",
-      phone: "9876543211",
-      details: "4 BHK · 3200 sqft",
-      image: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c",
-    },
-    
-   {
-      id: 3,
-      type: "House",
-      title: "Cozy Independent House",
-      price: 3200000,
-      location: "Anna Nagar, Chennai",
-      phone: "9876543212",
-      details: "3 BHK · 1800 sqft",
-      image: "https://images.unsplash.com/photo-1570129477492-45c003edd2be",
-    },
-  ];
+  const [properties, setProperties] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  const filteredProperties = properties.filter((item) => {
-    const matchType =
-      appliedFilters.type === "All" || item.type === appliedFilters.type;
+  const mapUiTypeToBackend = (uiType) => {
+    if (!uiType || uiType === "All") return null;
+    if (uiType === "Apartment") return "APARTMENT";
+    if (uiType === "Villa") return "VILLA";
+    if (uiType === "House") return "HOME";
+    return null;
+  };
 
-    const matchMin =
-      appliedFilters.minPrice === "" ||
-      item.price >= Number(appliedFilters.minPrice);
+  const mapBackendToUi = (dto) => {
+    const images = Array.isArray(dto?.images) ? dto.images : [];
+    const imagePath = images[0];
 
-    const matchMax =
-      appliedFilters.maxPrice === "" ||
-      item.price <= Number(appliedFilters.maxPrice);
+    const imageUrl = imagePath
+      ? `${STATIC_BASE_URL}/${String(imagePath).replace(/^\/+/, "")}`
+      : "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2";
 
-    return matchType && matchMin && matchMax;
-  });
+    const bhk = dto?.bhkType ? String(dto.bhkType).replace(/_/g, " ") : "";
+    const area = dto?.carpetArea ? String(dto.carpetArea) : "";
+    const details = [bhk, area].filter(Boolean).join(" · ");
+
+    const type =
+      dto?.propertyType === "HOME"
+        ? "House"
+        : dto?.propertyType === "APARTMENT"
+          ? "Apartment"
+          : dto?.propertyType === "VILLA"
+            ? "Villa"
+            : "All";
+
+    return {
+      id: dto?.id,
+      type,
+      title: dto?.title || "Untitled",
+      price: Number(dto?.price || 0),
+      location: dto?.location || "",
+      phone: dto?.mobileNumber || "",
+      details,
+      image: imageUrl,
+      _raw: dto,
+    };
+  };
+
+  const fetchAll = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await propertyApi.getAll();
+      const list = Array.isArray(res?.data?.data) ? res.data.data : [];
+      setProperties(list.map(mapBackendToUi));
+    } catch (e) {
+      setError(e?.message || "Failed to load properties");
+      setProperties([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const applyBackendFilter = async (filters) => {
+    setLoading(true);
+    setError("");
+    try {
+      const payload = {
+        propertyType: mapUiTypeToBackend(filters.type),
+        minPrice:
+          filters.minPrice === "" || filters.minPrice == null
+            ? null
+            : Number(filters.minPrice),
+        maxPrice:
+          filters.maxPrice === "" || filters.maxPrice == null
+            ? null
+            : Number(filters.maxPrice),
+      };
+
+      // Backend expects null/omitted for "All"
+      if (!payload.propertyType) delete payload.propertyType;
+      if (payload.minPrice == null || Number.isNaN(payload.minPrice))
+        delete payload.minPrice;
+      if (payload.maxPrice == null || Number.isNaN(payload.maxPrice))
+        delete payload.maxPrice;
+
+      const res = await propertyApi.filter(payload);
+      const list = Array.isArray(res?.data?.data) ? res.data.data : [];
+      setProperties(list.map(mapBackendToUi));
+    } catch (e) {
+      setError(e?.message || "Failed to filter properties");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const filteredProperties = useMemo(() => properties, [properties]);
 
   return (
     <div className="bg-[#F5F7FA] min-h-screen">
@@ -83,15 +136,24 @@ const BrowseProperties = () => {
         <Filter
           tempFilters={tempFilters}
           setTempFilters={setTempFilters}
-          applyFilters={() => setAppliedFilters(tempFilters)}
+          applyFilters={() => {
+            setAppliedFilters(tempFilters);
+            applyBackendFilter(tempFilters);
+          }}
           clearFilters={() => {
             const reset = { type: "All", minPrice: "", maxPrice: "" };
             setTempFilters(reset);
             setAppliedFilters(reset);
+            fetchAll();
           }}
         />
 
         <div className="mt-8">
+          {loading ? (
+            <p className="text-gray-600 font-medium">Loading properties...</p>
+          ) : error ? (
+            <p className="text-red-600 font-medium">{error}</p>
+          ) : null}
           <PropertyList properties={filteredProperties} />
         </div>
       </motion.div>

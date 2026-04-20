@@ -1,6 +1,19 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:8080/api';
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL?.replace(/\/+$/, '') ||
+  'http://localhost:8080/api';
+
+export const API_ORIGIN = (() => {
+  try {
+    return new URL(API_BASE_URL).origin;
+  } catch {
+    return 'http://localhost:8080';
+  }
+})();
+
+export const STATIC_BASE_URL =
+  import.meta.env.VITE_STATIC_BASE_URL?.replace(/\/+$/, '') || API_ORIGIN;
 
 const api = axios.create({
   baseURL: API_BASE_URL,

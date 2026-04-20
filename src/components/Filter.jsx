@@ -1,75 +1,91 @@
+import { Search, RotateCcw, Home, IndianRupee } from "lucide-react";
+
 const Filter = ({
   tempFilters,
   setTempFilters,
   applyFilters,
   clearFilters,
 }) => {
-
   const handleChange = (e) => {
     const { name, value } = e.target;
-
     setTempFilters({
       ...tempFilters,
       [name]: value,
     });
   };
 
+  const inputStyle = "w-full mt-1.5 px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none text-slate-700 placeholder:text-gray-400";
+
   return (
-    <div className="bg-white p-5 rounded-2xl border border-gray-200 flex flex-col md:flex-row gap-4 items-end">
+    <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-xl shadow-slate-200/50 flex flex-col lg:flex-row gap-6 items-end">
       
-      <div className="flex-1">
-        <label className="text-sm text-gray-500">Property Type</label>
+      {/* Property Type Dropdown */}
+      <div className="w-full lg:flex-1">
+        <label className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
+          <Home size={14} className="text-blue-500" />
+          Property Type
+        </label>
         <select
           name="type"
           value={tempFilters.type}
           onChange={handleChange}
-          className="w-full mt-1 px-4 py-2 border rounded-xl"
+          className={`${inputStyle} appearance-none cursor-pointer`}
         >
-          <option>All</option>
-          <option>Apartment</option>
-          <option>Villa</option>
-          <option>House</option>
+          <option value="All">All Properties</option>
+          <option value="Apartment">Apartment</option>
+          <option value="Villa">Villa</option>
+          <option value="House">House</option>
         </select>
       </div>
 
-      <div className="flex-1">
-        <label className="text-sm text-gray-500">Min Price (₹)</label>
+      {/* Min Price Input */}
+      <div className="w-full lg:flex-1">
+        <label className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
+          <IndianRupee size={14} className="text-green-500" />
+          Min Price
+        </label>
         <input
           type="number"
           name="minPrice"
-          placeholder="e.g. 200000"
+          placeholder="e.g. 2,00,000"
           value={tempFilters.minPrice}
           onChange={handleChange}
-          className="w-full mt-1 px-4 py-2 border rounded-xl"
+          className={inputStyle}
         />
       </div>
 
-      <div className="flex-1">
-        <label className="text-sm text-gray-500">Max Price (₹)</label>
+      {/* Max Price Input */}
+      <div className="w-full lg:flex-1">
+        <label className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
+          <IndianRupee size={14} className="text-green-500" />
+          Max Price
+        </label>
         <input
           type="number"
           name="maxPrice"
-          placeholder="e.g. 500000"
+          placeholder="e.g. 5,00,000"
           value={tempFilters.maxPrice}
           onChange={handleChange}
-          className="w-full mt-1 px-4 py-2 border rounded-xl"
+          className={inputStyle}
         />
       </div>
 
-      {/*  Buttons */}
-      <div className="flex gap-2">
+      {/* Buttons */}
+      <div className="flex gap-3 w-full lg:w-auto">
         <button
           onClick={clearFilters}
-          className="px-4 py-2 border rounded-xl text-gray-600 hover:bg-gray-100"
+          className="flex-1 lg:flex-none flex items-center justify-center gap-2 px-6 py-2.5 border border-gray-200 rounded-xl text-slate-600 font-medium hover:bg-gray-50 active:scale-95 transition-all"
         >
-          Clear
+          <RotateCcw size={18} />
+          <span>Reset</span>
         </button>
 
         <button
           onClick={applyFilters}
-          className="px-5 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700"
+          className="flex-[2] lg:flex-none flex items-center justify-center gap-2 px-8 py-2.5 bg-green-600 text-white font-semibold rounded-xl hover:bg-green-700 shadow-lg shadow-green-200 active:scale-95 transition-all"
         >
-          Apply
+          <Search size={18} />
+          <span>Apply</span>
         </button>
       </div>
     </div>
