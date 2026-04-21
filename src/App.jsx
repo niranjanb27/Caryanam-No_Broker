@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import BrowseProperties from "./pages/BrowseProperties";
+import PropertyDetails from "./pages/PropertyDetails";
 import AdminDashboard from "./pages/AdminDashboard";
 
 function App() {
@@ -7,6 +8,7 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/user" element={<BrowseProperties />} />
+        <Route path="/property/:id" element={<PropertyDetails />} />
         <Route path="/admin" element={<AdminDashboard />} />
       </Routes>
     </BrowserRouter>

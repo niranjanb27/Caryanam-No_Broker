@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { adminApi } from "../services/api";
+import { adminApi, STATIC_BASE_URL } from "../services/api";
 import imageCompression from "browser-image-compression";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -216,6 +216,7 @@ const AdminDashboard = () => {
       return;
     }
 
+    let createdPropertyId = null;
     try {
       setLoading(true);
 
@@ -236,6 +237,7 @@ const AdminDashboard = () => {
       
       if (propertyResponse.data && propertyResponse.data.data) {
         const propertyId = propertyResponse.data.data.id;
+        createdPropertyId = propertyId;
 
         // Upload images
         const formDataImages = new FormData();
@@ -246,20 +248,16 @@ const AdminDashboard = () => {
           }
         });
 
-        console.log("Total files to upload:", formDataImages.getAll("files").length);
-
-        if (formDataImages.getAll("files").length > 0) {
-          try {
-            const uploadResponse = await adminApi.uploadPropertyImages(propertyId, formDataImages);
-            console.log("Upload successful:", uploadResponse.data);
-          } catch (imageError) {
-            console.error("Error uploading images:", imageError);
-            console.error("Error response data:", imageError.response?.data);
-            toast.error(imageError.response?.data?.message || "Property added, but images failed to upload");
-          }
+        try {
+          await adminApi.uploadPropertyImages(propertyId, formDataImages);
+          toast.success("Property added successfully!");
+        } catch (uploadErr) {
+          console.error("Error uploading images:", uploadErr);
+          toast.error(
+            uploadErr?.response?.data?.message ||
+              "Property added, but image upload failed"
+          );
         }
-
-        toast.success("Property added successfully!");
         
         // Reset form
         setFormData({
@@ -280,7 +278,14 @@ const AdminDashboard = () => {
       }
     } catch (err) {
       console.error("Error adding property:", err);
-      toast.error(err.response?.data?.message || "Failed to add property");
+      const msg = err?.response?.data?.message;
+      if (msg) {
+        toast.error(msg);
+      } else if (createdPropertyId) {
+        toast.error("Property added, but something failed after creation");
+      } else {
+        toast.error("Failed to add property");
+      }
     } finally {
       setLoading(false);
     }
@@ -714,9 +719,13 @@ const AdminDashboard = () => {
                 >
                   <div className="h-48 bg-gray-200">
                     {property.images && property.images.length > 0 ? (
-                      <PropertyThumbnail
-                        imageName={property.images[0]}
-                        title={property.title}
+                      <img
+                        src={`${STATIC_BASE_URL}/${String(property.images[0]).replace(/^\/+/, "")}`}
+                        alt={property.title}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.currentTarget.style.display = "none";
+                        }}
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center bg-gray-300">

@@ -3,3 +3,18 @@ body {
   font-family: 'Inter', sans-serif;
 }
 
+h1, h2 {
+  font-family: 'Playfair Display', serif;
+}
+
+/* h1, h2 {
+  font-family: 'Manrope', serif;
+} */
+
+button {
+  transition: all 0.2s ease-in-out;
+}
+
+input, select {
+  transition: all 0.2s ease;
+}
