@@ -9,6 +9,30 @@ const api = axios.create({
   },
 });
 
+const uploadApi = axios.create({
+  baseURL: API_BASE_URL,
+});
+
+const normalizeApiResponse = (response) => {
+  const apiStatus = response?.data?.status;
+  if (typeof apiStatus === "number" && apiStatus >= 400) {
+    const error = new Error(response?.data?.message || "Request failed");
+    error.response = response;
+    throw error;
+  }
+  return response;
+};
+
+api.interceptors.response.use(
+  (response) => normalizeApiResponse(response),
+  (error) => Promise.reject(error)
+);
+
+uploadApi.interceptors.response.use(
+  (response) => normalizeApiResponse(response),
+  (error) => Promise.reject(error)
+);
+
 // Admin API calls
 export const adminApi = {
   // Add property
@@ -38,7 +62,7 @@ export const adminApi = {
 
   // Upload property images
   uploadPropertyImages: (propertyId, formData) => {
-    return api.post(`/admin/upload-property-images/${propertyId}`, formData, {
+    return uploadApi.post(`/admin/upload-property-images/${propertyId}`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
