@@ -33,7 +33,7 @@ const BrowseProperties = () => {
 
     const imageUrl = imagePath
       ? `${STATIC_BASE_URL}/${String(imagePath).replace(/^\/+/, "")}`
-      : "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2";
+      : "";
 
     const bhk = dto?.bhkType ? String(dto.bhkType).replace(/_/g, " ") : "";
     const area = dto?.carpetArea ? String(dto.carpetArea) : "";
