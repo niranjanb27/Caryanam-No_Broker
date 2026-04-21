@@ -62,6 +62,8 @@ const AdminDashboard = () => {
   const [uploading, setUploading] = useState(false);
   const [editingProperty, setEditingProperty] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const latestPreviewsRef = useRef([]);
   const adminId = 1; // Admin ID for rajeshnarwade67@gmail.com
 
   const imageLabels = [
@@ -81,6 +83,26 @@ const AdminDashboard = () => {
   useEffect(() => {
     fetchProperties();
   }, []);
+
+  useEffect(() => {
+    latestPreviewsRef.current = imagePreviews;
+  }, [imagePreviews]);
+
+  useEffect(() => {
+    return () => {
+      latestPreviewsRef.current.forEach((preview) => {
+        if (preview) URL.revokeObjectURL(preview);
+      });
+    };
+  }, []);
+
+  const clearSelectedImages = () => {
+    imagePreviews.forEach((preview) => {
+      if (preview) URL.revokeObjectURL(preview);
+    });
+    setImages([]);
+    setImagePreviews([]);
+  };
 
   const fetchProperties = async () => {
     try {
@@ -178,6 +200,10 @@ const AdminDashboard = () => {
       const newImages = [...images];
       const newPreviews = [...imagePreviews];
 
+      if (newPreviews[index]) {
+        URL.revokeObjectURL(newPreviews[index]);
+      }
+
       newImages[index] = fileWithCorrectName;
       newPreviews[index] = URL.createObjectURL(fileWithCorrectName);
 
@@ -191,34 +217,59 @@ const AdminDashboard = () => {
     }
   };
 
-  // Handle form submission
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  // Allow removing a selected image before upload
+  const handleRemoveImage = (index) => {
+    if (!imagePreviews[index]) return;
 
+    const newImages = [...images];
+    const newPreviews = [...imagePreviews];
+    URL.revokeObjectURL(newPreviews[index]);
+    newImages[index] = undefined;
+    newPreviews[index] = undefined;
+    setImages(newImages);
+    setImagePreviews(newPreviews);
+  };
+
+  const validateBeforeUpload = () => {
     // Validate form
     if (!formData.propertyTitle || !formData.price || !formData.propertyType ||
         !formData.location || !formData.mobileNumber || !formData.description ||
         !formData.bhkType || !formData.furnishing) {
       toast.error("All fields are required");
-      return;
+      return false;
     }
 
     // Validate mobile number
     if (formData.mobileNumber.length !== 10 || !/^[6-9]/.test(formData.mobileNumber)) {
       toast.error("Invalid mobile number");
-      return;
+      return false;
     }
 
     // Validate images
     const uploadedImages = images.filter(img => img !== undefined);
     if (uploadedImages.length === 0) {
       toast.error("At least one image is required");
-      return;
+      return false;
     }
+
+    return true;
+  };
+
+  const handleOpenPreview = () => {
+    if (!validateBeforeUpload()) return;
+    setShowPreviewModal(true);
+  };
+
+  // Handle form submission after preview confirmation
+  const handleSubmit = async () => {
+    if (uploading || loading) return;
+    const uploadedImages = images.filter(img => img !== undefined);
 
     let createdPropertyId = null;
     try {
       setLoading(true);
+      setUploading(true);
+      setShowPreviewModal(false);
 
       // Prepare property data
       const propertyData = {
@@ -255,6 +306,7 @@ const AdminDashboard = () => {
           console.error("Error uploading images:", uploadErr);
           toast.error(
             uploadErr?.response?.data?.message ||
+              uploadErr?.message ||
               "Property added, but image upload failed"
           );
         }
@@ -270,8 +322,7 @@ const AdminDashboard = () => {
           bhkType: "",
           furnishing: "",
         });
-        setImages([]);
-        setImagePreviews([]);
+        clearSelectedImages();
 
         // Refresh properties list
         await fetchProperties();
@@ -288,6 +339,7 @@ const AdminDashboard = () => {
       }
     } finally {
       setLoading(false);
+      setUploading(false);
     }
   };
 
@@ -657,6 +709,17 @@ const AdminDashboard = () => {
                         </>
                       )}
                     </label>
+                    {imagePreviews[index] && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveImage(index)}
+                        className="absolute top-2 right-2 h-7 w-7 rounded-full bg-red-500 text-white text-lg leading-none flex items-center justify-center shadow hover:bg-red-600"
+                        aria-label={`Remove ${label}`}
+                        title="Remove image"
+                      >
+                        ×
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
@@ -666,11 +729,11 @@ const AdminDashboard = () => {
             <div className="pt-6">
               <button
                 type="submit"
-                onClick={handleSubmit}
+                onClick={handleOpenPreview}
                 disabled={loading}
                 className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-sm disabled:bg-gray-400 disabled:cursor-not-allowed"
               >
-                {loading ? "Uploading..." : "Upload Property"}
+                {loading ? "Uploading..." : "Preview Property"}
               </button>
             </div>
           </div>
@@ -872,6 +935,87 @@ const AdminDashboard = () => {
           </div>
         </div>
       </div>
+
+      {/* Property Preview Modal */}
+      {showPreviewModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center p-6 border-b">
+              <h2 className="text-2xl font-bold text-gray-800">Preview Property</h2>
+              <button
+                type="button"
+                onClick={() => setShowPreviewModal(false)}
+                className="text-gray-500 hover:text-gray-700"
+                aria-label="Close preview"
+              >
+                <svg
+                  className="w-6 h-6"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+
+            <div className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <div><span className="font-semibold text-gray-700">Title:</span> {formData.propertyTitle}</div>
+                <div><span className="font-semibold text-gray-700">Price:</span> ₹{Number(formData.price || 0).toLocaleString()}</div>
+                <div><span className="font-semibold text-gray-700">Type:</span> {formData.propertyType}</div>
+                <div><span className="font-semibold text-gray-700">BHK:</span> {formData.bhkType}</div>
+                <div><span className="font-semibold text-gray-700">Furnishing:</span> {formData.furnishing}</div>
+                <div><span className="font-semibold text-gray-700">Mobile:</span> {formData.mobileNumber}</div>
+                <div className="md:col-span-2"><span className="font-semibold text-gray-700">Location:</span> {formData.location}</div>
+                <div className="md:col-span-2"><span className="font-semibold text-gray-700">Description:</span> {formData.description}</div>
+              </div>
+
+              <div className="mt-6">
+                <h3 className="font-semibold text-gray-800 mb-3">Selected Images</h3>
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                  {imagePreviews
+                    .map((preview, index) => ({ preview, index }))
+                    .filter((item) => Boolean(item.preview))
+                    .map((item) => (
+                      <div key={item.index} className="border rounded-lg p-2">
+                        <img
+                          src={item.preview}
+                          alt={imageLabels[item.index]}
+                          className="h-24 w-full object-cover rounded"
+                        />
+                        <p className="text-xs text-gray-600 mt-2 text-center">{imageLabels[item.index]}</p>
+                      </div>
+                    ))}
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-6">
+                <button
+                  type="button"
+                  onClick={() => setShowPreviewModal(false)}
+                  className="flex-1 px-4 py-3 border border-gray-300 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
+                >
+                  Back to Edit
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSubmit}
+                  disabled={uploading}
+                  className="flex-1 bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:bg-gray-400"
+                >
+                  {uploading ? "Uploading..." : "Confirm & Upload"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Edit Property Modal */}
       {showEditModal && (
