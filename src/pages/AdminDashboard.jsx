@@ -4,6 +4,45 @@ import imageCompression from "browser-image-compression";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
+const IMAGE_FALLBACK =
+  "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'><rect width='100%25' height='100%25' fill='%23D1D5DB'/><text x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%236B7280' font-family='Arial, sans-serif' font-size='24'>No Image</text></svg>";
+
+const buildImageCandidates = (imageName) => {
+  if (!imageName) return [IMAGE_FALLBACK];
+
+  const cleanedName = String(imageName).replace(/^\/+/, "");
+  return [
+    `http://localhost:8080/uploads/${cleanedName}`,
+    `http://localhost:8080/${cleanedName}`,
+    `http://localhost:8080/api/uploads/${cleanedName}`,
+    IMAGE_FALLBACK,
+  ];
+};
+
+const PropertyThumbnail = ({ imageName, title }) => {
+  const candidates = buildImageCandidates(imageName);
+  const [candidateIndex, setCandidateIndex] = useState(0);
+
+  useEffect(() => {
+    setCandidateIndex(0);
+  }, [imageName]);
+
+  const handleImageError = () => {
+    setCandidateIndex((current) =>
+      current < candidates.length - 1 ? current + 1 : current
+    );
+  };
+
+  return (
+    <img
+      src={candidates[candidateIndex]}
+      alt={title}
+      className="w-full h-full object-cover"
+      onError={handleImageError}
+    />
+  );
+};
+
 const AdminDashboard = () => {
   const [formData, setFormData] = useState({
     propertyTitle: "",
@@ -48,7 +87,28 @@ const AdminDashboard = () => {
       setLoading(true);
       const response = await adminApi.getAllProperties();
       if (response.data && response.data.data) {
-        setProperties(response.data.data);
+        const baseProperties = response.data.data;
+
+        const propertiesWithImages = await Promise.all(
+          baseProperties.map(async (property) => {
+            try {
+              const detailsResponse = await adminApi.getPropertyById(property.id);
+              const detailData = detailsResponse?.data?.data;
+              return {
+                ...property,
+                images: Array.isArray(detailData?.images) ? detailData.images : [],
+              };
+            } catch (error) {
+              console.error(`Error fetching images for property ${property.id}:`, error);
+              return {
+                ...property,
+                images: [],
+              };
+            }
+          })
+        );
+
+        setProperties(propertiesWithImages);
       }
     } catch (err) {
       console.error("Error fetching properties:", err);
@@ -96,16 +156,38 @@ const AdminDashboard = () => {
       validateImage(file);
       const compressedFile = await compressImage(file);
 
+      // Ensure filename has valid extension and make it unique to avoid duplicate-image errors.
+      const originalName = file.name.toLowerCase();
+      const baseName = originalName.replace(/\.[^/.]+$/, "").replace(/[^a-z0-9-_]/g, "-");
+      let extension = originalName.split(".").pop();
+
+      if (!["jpg", "jpeg", "png"].includes(extension)) {
+        if (file.type === "image/jpeg") extension = "jpg";
+        if (file.type === "image/png") extension = "png";
+      }
+
+      const uniqueSuffix = `${Date.now()}-${index}-${Math.random().toString(36).slice(2, 8)}`;
+      const fileName = `${baseName || "property-image"}-${uniqueSuffix}.${extension}`;
+
+      // Create a new File object with correct name and type
+      const fileWithCorrectName = new File([compressedFile], fileName, {
+        type: file.type,
+        lastModified: Date.now()
+      });
+
       const newImages = [...images];
       const newPreviews = [...imagePreviews];
 
-      newImages[index] = compressedFile;
-      newPreviews[index] = URL.createObjectURL(compressedFile);
+      newImages[index] = fileWithCorrectName;
+      newPreviews[index] = URL.createObjectURL(fileWithCorrectName);
 
       setImages(newImages);
       setImagePreviews(newPreviews);
     } catch (err) {
       toast.error(err.message);
+    } finally {
+      // Allow selecting the same file again by resetting input value.
+      e.target.value = "";
     }
   };
 
@@ -160,7 +242,10 @@ const AdminDashboard = () => {
         // Upload images
         const formDataImages = new FormData();
         uploadedImages.forEach((image) => {
-          formDataImages.append("files", image);
+          if (image) {
+            console.log("Appending image:", image.name, image.type, image.size);
+            formDataImages.append("files", image);
+          }
         });
 
         try {
@@ -213,12 +298,12 @@ const AdminDashboard = () => {
     }
 
     try {
-      await adminApi.deleteProperty(propertyId);
-      toast.success("Property deleted successfully");
+      const response = await adminApi.deleteProperty(propertyId);
+      toast.success(response?.data?.message || "Property deactivated successfully");
       await fetchProperties();
     } catch (err) {
       console.error("Error deleting property:", err);
-      toast.error("Failed to delete property");
+      toast.error(err.response?.data?.message || err.message || "Failed to delete property");
     }
   };
 
@@ -272,8 +357,8 @@ const AdminDashboard = () => {
         furnishing: formData.furnishing,
       };
 
-      await adminApi.updateProperty(editingProperty.id, propertyData);
-      toast.success("Property updated successfully");
+      const response = await adminApi.updateProperty(editingProperty.id, propertyData);
+      toast.success(response?.data?.message || "Property updated successfully");
 
       setShowEditModal(false);
       setEditingProperty(null);
