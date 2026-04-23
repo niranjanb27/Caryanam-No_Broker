@@ -39,7 +39,6 @@ const PropertyList = ({ properties }) => {
           </div>
         </div>
         
-        {/* Optional: You could add a 'Sort By' dropdown here later */}
       </div>
 
       {/* The Row/Grid Layout */}
@@ -63,7 +62,6 @@ const PropertyList = ({ properties }) => {
         ) : (
           <div className="col-span-full flex flex-col items-center justify-center py-20 bg-gray-50 rounded-3xl border-2 border-dashed border-gray-200">
             <p className="text-gray-400 font-medium">No properties match your current filters.</p>
-            <button className="mt-2 text-blue-600 font-bold hover:underline">Clear all filters</button>
           </div>
         )}
       </motion.div>
