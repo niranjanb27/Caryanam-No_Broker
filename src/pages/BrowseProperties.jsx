@@ -3,7 +3,8 @@ import { motion } from "framer-motion";
 import Navbar from "../components/Navbar";
 import Filter from "../components/Filter";
 import PropertyList from "../components/PropertyList";
-import { propertyApi, STATIC_BASE_URL } from "../services/api";
+import { propertyApi, STATIC_BASE_URL } from "../services/Api";
+
 
 const BrowseProperties = () => {
 

@@ -41,6 +41,18 @@ api.interceptors.response.use(
   (error) => Promise.reject(error)
 );
 
+api.interceptors.request.use((config) => {
+
+  const token = localStorage.getItem("token");
+
+  // ❗ auth calls ला token नको (login/register)
+  if (token && !config.url.includes("/auth")) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+
+  return config;
+});
+
 uploadApi.interceptors.response.use(
   (response) => normalizeApiResponse(response),
   (error) => Promise.reject(error)
@@ -62,6 +74,8 @@ export const adminApi = {
   getPropertyById: (id) => {
     return api.get(`/admin/get-property-by-id/${id}`);
   },
+    
+  
 
   // Update property
   updateProperty: (id, propertyData) => {
@@ -103,6 +117,20 @@ export const propertyApi = {
   // Get property by ID
   getById: (id) => {
     return api.get(`/properties/${id}`);
+  },
+};
+
+ export const authApi = {
+  login: (data) => {
+    return api.post('/auth/login', data);
+  },
+
+  registerUser: (data) => {
+    return api.post('/auth/register/user', data);
+  },
+
+  registerAdmin: (data) => {
+    return api.post('/auth/register/admin', data);
   },
 };
 

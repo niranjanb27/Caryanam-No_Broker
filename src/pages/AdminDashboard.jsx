@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { adminApi, STATIC_BASE_URL } from "../services/api";
 import imageCompression from "browser-image-compression";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+
 
 const IMAGE_FALLBACK =
   "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'><rect width='100%25' height='100%25' fill='%23D1D5DB'/><text x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%236B7280' font-family='Arial, sans-serif' font-size='24'>No Image</text></svg>";
@@ -44,6 +46,39 @@ const PropertyThumbnail = ({ imageName, title }) => {
 };
 
 const AdminDashboard = () => {
+  const navigate = useNavigate();
+
+   const channel = new BroadcastChannel("auth");
+
+ useEffect(() => {
+    const token = localStorage.getItem("token");
+
+    if (!token) {
+      navigate("/login");
+    }
+  }, []);
+
+  useEffect(() => {
+  fetchProperties();
+}, []);
+
+useEffect(() => {
+  const handleStorageChange = () => {
+    const token = localStorage.getItem("token");
+
+    if (!token) {
+      navigate("/login");
+    }
+  };
+
+  window.addEventListener("storage", handleStorageChange);
+
+  return () => {
+    window.removeEventListener("storage", handleStorageChange);
+  };
+}, []);
+
+
   const [formData, setFormData] = useState({
     propertyTitle: "",
     price: "",
@@ -54,6 +89,12 @@ const AdminDashboard = () => {
     bhkType: "",
     furnishing: "",
   });
+
+  const handleLogout = () => {
+  localStorage.removeItem("token");
+  channel.postMessage("logout");
+  navigate("/login");
+};
 
   const [images, setImages] = useState([]);
   const [imagePreviews, setImagePreviews] = useState([]);
@@ -83,6 +124,9 @@ const AdminDashboard = () => {
   useEffect(() => {
     fetchProperties();
   }, []);
+
+
+ 
 
   useEffect(() => {
     latestPreviewsRef.current = imagePreviews;
@@ -466,7 +510,9 @@ const AdminDashboard = () => {
           <span className="text-gray-700 font-medium">
             Admin User <span className="text-blue-600">(Admin)</span>
           </span>
-          <button className="text-gray-700 hover:text-red-500 font-medium">
+          <button 
+          onClick={handleLogout}
+          className="text-gray-700 hover:text-red-500 font-medium">
             Logout
           </button>
         </div>
