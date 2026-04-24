@@ -105,5 +105,10 @@ export const propertyApi = {
     return api.get(`/properties/${id}`);
   },
 };
-
+export const authApi = {
+  login: (data) => api.post("/auth/login", data),
+  registerUser: (data) => api.post("/auth/register/user", data),
+  registerAdmin: (data) => api.post("/auth/register/admin", data),
+  registerOwner: (data) => api.post("/auth/register/POwner", data),
+};
 export default api;

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { adminApi, STATIC_BASE_URL } from "../services/api";
 import imageCompression from "browser-image-compression";
 import { toast, ToastContainer } from "react-toastify";
@@ -65,6 +66,14 @@ const AdminDashboard = () => {
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const latestPreviewsRef = useRef([]);
   const adminId = 1; // Admin ID for rajeshnarwade67@gmail.com
+  
+
+  const navigate = useNavigate();
+
+const handleLogout = () => {
+  localStorage.removeItem("token");
+  navigate("/login");
+};
 
   const imageLabels = [
     "Door (Closed)",
@@ -466,7 +475,9 @@ const AdminDashboard = () => {
           <span className="text-gray-700 font-medium">
             Admin User <span className="text-blue-600">(Admin)</span>
           </span>
-          <button className="text-gray-700 hover:text-red-500 font-medium">
+          <button 
+          onClick={handleLogout}
+          className="text-gray-700 hover:text-red-500 font-medium">
             Logout
           </button>
         </div>
