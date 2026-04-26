@@ -71,7 +71,10 @@ const AdminDashboard = () => {
   const navigate = useNavigate();
 
 const handleLogout = () => {
-  localStorage.removeItem("token");
+  localStorage.removeItem("adminToken");
+  localStorage.setItem("adminLogout", Date.now());
+  const channel = new BroadcastChannel("admin-auth");
+  channel.postMessage("logout");
   navigate("/login");
 };
 
