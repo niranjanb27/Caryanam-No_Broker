@@ -478,6 +478,28 @@ const handleLogout = () => {
           <span className="text-gray-700 font-medium">
             Admin User <span className="text-blue-600">(Admin)</span>
           </span>
+          <button
+            onClick={() => navigate("/admin/interested-users")}
+            className="relative text-gray-700 hover:text-blue-500"
+            title="Interested Users"
+          >
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
+              />
+            </svg>
+            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+              6
+            </span>
+          </button>
           <button 
           onClick={handleLogout}
           className="text-gray-700 hover:text-red-500 font-medium">
@@ -943,6 +965,63 @@ const handleLogout = () => {
                 </div>
                 <span className="text-sm text-gray-400">
                   Apr 14, 2026
+                </span>
+              </div>
+            </div>
+
+            <div className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <h3 className="font-semibold text-gray-800 mb-1">
+                    Sneha Patel
+                  </h3>
+                  <p className="text-sm text-gray-500 mb-1">
+                    sneha.patel@email.com
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    Interested in: Modern Studio Apartment
+                  </p>
+                </div>
+                <span className="text-sm text-gray-400">
+                  Apr 15, 2026
+                </span>
+              </div>
+            </div>
+
+            <div className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <h3 className="font-semibold text-gray-800 mb-1">
+                    Vikram Singh
+                  </h3>
+                  <p className="text-sm text-gray-500 mb-1">
+                    vikram.singh@email.com
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    Interested in: Luxury Penthouse
+                  </p>
+                </div>
+                <span className="text-sm text-gray-400">
+                  Apr 16, 2026
+                </span>
+              </div>
+            </div>
+
+            <div className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <h3 className="font-semibold text-gray-800 mb-1">
+                    Meera Joshi
+                  </h3>
+                  <p className="text-sm text-gray-500 mb-1">
+                    meera.joshi@email.com
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    Interested in: Family Bungalow
+                  </p>
+                </div>
+                <span className="text-sm text-gray-400">
+                  Apr 17, 2026
                 </span>
               </div>
             </div>

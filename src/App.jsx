@@ -3,6 +3,7 @@ import BrowseProperties from "./pages/BrowseProperties";
 import PropertyDetails from "./pages/PropertyDetails";
 import AdminDashboard from "./pages/AdminDashboard";
 import Auth from "./pages/Auth";
+import InterestedUsers from "./pages/InterestedUsers";
 import ProtectedRoute from "./routes/ProtectedRoute";
 
 function App() {
@@ -54,6 +55,15 @@ function App() {
           }
         />
 
+        {/* INTERESTED USERS PROTECTED */}
+        <Route
+          path="/admin/interested-users"
+          element={
+            <ProtectedRoute role="ROLE_ADMIN">
+              <InterestedUsers />
+            </ProtectedRoute>
+          }
+        />
 
       </Routes>
     </BrowserRouter>
