@@ -5,7 +5,6 @@ import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function Auth() {
-  const channel = new BroadcastChannel("auth");
   const [isLogin, setIsLogin] = useState(true);
   const navigate = useNavigate();
 
@@ -18,17 +17,37 @@ export default function Auth() {
   });
 
   useEffect(() => {
-    channel.onmessage = (msg) => {
+  // ✅ Separate channels
+  const userChannel = new BroadcastChannel("user-auth");
+  const adminChannel = new BroadcastChannel("admin-auth");
+
+  
+    // ✅ user listener
+    userChannel.onmessage = (msg) => {
       if (msg.data === "logout") {
-        localStorage.removeItem("token");
-        navigate("/");
+        localStorage.removeItem("userToken");
+        navigate("/login");
       }
     };
 
+    // ✅ admin listener
+    adminChannel.onmessage = (msg) => {
+      if (msg.data === "logout") {
+        localStorage.removeItem("adminToken");
+        navigate("/login");
+      }
+    };
+
+    // ✅ storage sync
     const syncLogout = (event) => {
-      if (event.key === "logout") {
-        localStorage.removeItem("token");
-        navigate("/");
+      if (event.key === "adminLogout") {
+        localStorage.removeItem("adminToken");
+        navigate("/login");
+      }
+
+      if (event.key === "userLogout") {
+        localStorage.removeItem("userToken");
+        navigate("/login");
       }
     };
 
@@ -36,7 +55,8 @@ export default function Auth() {
 
     return () => {
       window.removeEventListener("storage", syncLogout);
-      channel.close();
+      userChannel.close();
+      adminChannel.close();
     };
   }, [navigate]);
 
@@ -81,28 +101,57 @@ export default function Auth() {
     if (error) return alert(error);
 
     try {
+
+    const deviceType = "WEB";
+
       const res = await authApi.login({
         email: formData.email,
         password: formData.password,
+        devicetype: deviceType,
       });
 
-      const token = res.data.token;
-      localStorage.setItem("token", token);
-      channel.postMessage("login");
+      console.log("LOGIN RESPONSE:", res.data);
+      const token = res.data.token; res.data.data?.token;
+      if (!token) {
+     alert("Token not received");
+      return;
+}
 
+      // ✅ decode first
       const decoded = jwtDecode(token);
-      alert("Login Successful");
-
       const role = decoded.role || decoded.roles?.[0];
+
+      // ✅ separate token
+      if (role === "ROLE_ADMIN") {
+        localStorage.setItem("adminToken", token);
+        
+      } else {
+        localStorage.setItem("userToken", token);
+        
+      }
+
+      alert("Login Successful");
 
       if (role === "ROLE_ADMIN") navigate("/admin");
       else if (role === "ROLE_USER") navigate("/user");
       else if (role === "ROLE_PROPERTY_OWNER") navigate("/owner");
       else alert("Unknown role");
+
     } catch (err) {
       alert(err.response?.data?.message || "Login Failed");
     }
   };
+
+    const triggerAdminLogout = () => {
+    localStorage.removeItem("adminToken");
+
+    // notify other tabs
+    localStorage.setItem("adminLogout", Date.now());
+
+    const channel = new BroadcastChannel("admin-auth");
+    channel.postMessage("logout");
+    };
+
 
   function handleSubmit(e) {
     e.preventDefault();
@@ -117,16 +166,10 @@ export default function Auth() {
   return (
     <div className="min-h-screen flex flex-col lg:flex-row items-center lg:items-stretch justify-center lg:justify-between px-4 sm:px-6 md:px-10 lg:px-24 bg-[linear-gradient(to_right,#c026d3_50%,#ffffff_50%)] text-gray-800 overflow-hidden relative">
 
-      {/* LOGO */}
-      <div className="absolute top-6 sm:top-10 left-1/2 -translate-x-1/2 text-lg sm:text-xl font-bold z-50">
-        Caryanam Broker
-      </div>
-
       {/* LEFT PANEL */}
       <div className="hidden lg:flex flex-col items-center justify-center flex-1 max-w-[700px] xl:max-w-[900px] min-h-[500px] xl:min-h-[700px] bg-gradient-to-b from-[#f0abfc] via-[#c026d3] to-[#4c1d95] p-6 sm:p-10">
-        <div className="text-[120px] sm:text-[180px] md:text-[220px] lg:text-[260px] xl:text-[300px]">🏢</div>
-        <h3 className="text-2xl sm:text-3xl md:text-4xl text-cyan-400 mt-6 text-center">Digital City</h3>
-        <p className="text-gray-300 text-sm sm:text-base md:text-lg text-center mt-2 px-4">
+        <h3 className="text-3xl text-white mt-6 text-center animate-pulse">Digital City</h3>
+        <p className="text-white text-base text-center mt-2 px-4 animate-pulse">
           Your Trusted Partner in Every Property Deal
         </p>
       </div>
@@ -135,10 +178,10 @@ export default function Auth() {
       <motion.div 
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        className="w-full lg:flex-1 max-w-[500px] sm:max-w-[600px] md:max-w-[700px] lg:max-w-[900px] min-h-[600px] bg-white rounded-2xl shadow-2xl flex flex-col justify-center px-6 sm:px-10"
+        className="w-full lg:flex-1 max-w-[500px] bg-white rounded-2xl shadow-2xl flex flex-col justify-center px-6 sm:px-10"
       >
 
-        <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-['Poppins'] mb-4">
+        <h2 className="text-3xl mb-4">
           {isLogin ? "Start Your Property Journey Today!" : "Create Account"}
         </h2>
 
@@ -147,29 +190,29 @@ export default function Auth() {
           {!isLogin && (
             <>
               <input name="fullName" placeholder="Full Name" onChange={handleChange}
-                className="w-full p-3 sm:p-4 border rounded-lg" />
+                className="w-full p-3 border rounded-2xl" />
 
               <input name="mobileNumber" placeholder="Mobile Number" onChange={handleChange}
-                className="w-full p-3 sm:p-4 border rounded-lg" />
+                className="w-full p-3 border rounded-2xl" />
             </>
           )}
 
           <input name="email" placeholder="Email" onChange={handleChange}
-            className="w-full p-3 sm:p-4 border rounded-lg" />
+            className="w-full p-3 border rounded-2xl" />
 
           <input type="password" name="password" placeholder="Password" onChange={handleChange}
-            className="w-full p-3 sm:p-4 border rounded-lg" />
+            className="w-full p-3 border rounded-2xl" />
 
           {!isLogin && (
             <select name="role" onChange={handleChange}
-              className="w-full p-3 border rounded-lg">
+              className="w-full p-3 border rounded-2xl">
               <option value="USER">USER</option>
               <option value="ADMIN">ADMIN</option>
               <option value="PROPERTY_OWNER">PROPERTY_OWNER</option>
             </select>
           )}
 
-          <button className="w-full bg-blue-500 text-white py-3 rounded-lg">
+          <button className="w-full bg-purple-500 text-white py-3 rounded-lg">
             {isLogin ? "SIGN IN" : "SIGN UP"}
           </button>
         </form>
@@ -178,7 +221,7 @@ export default function Auth() {
           {isLogin ? "Don't have an account?" : "Already have an account?"}
           <span
             onClick={() => setIsLogin(!isLogin)}
-            className="text-blue-500 ml-2 cursor-pointer"
+            className="text-purple-500 ml-3 cursor-pointer"
           >
             {isLogin ? "Sign up" : "Sign in"}
           </span>
